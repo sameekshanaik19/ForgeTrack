@@ -1,6 +1,100 @@
-import { Search } from 'lucide-react';
+import { Search, Calendar, Activity, Users, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 
 export function Dashboard() {
+  const [stats, setStats] = useState({
+    totalSessions: 0,
+    attendanceRate: 0,
+    activeStudents: 0,
+    lastSessionDate: '--- --'
+  });
+  const [user, setUser] = useState({ email: 'loading...', display_name: 'User' });
+  const [todaySession, setTodaySession] = useState(null);
+  const [todayAttendance, setTodayAttendance] = useState({ present: 0, total: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchDashboardData() {
+      try {
+        setLoading(true);
+        
+        // 1. Fetch Basic Stats
+        const [sessionsRes, studentsRes, attendanceRes, lastSessionRes] = await Promise.all([
+          supabase.from('sessions').select('*', { count: 'exact', head: true }),
+          supabase.from('students').select('*', { count: 'exact', head: true }).eq('is_active', true),
+          supabase.from('attendance').select('present'),
+          supabase.from('sessions').select('date').order('date', { ascending: false }).limit(1).maybeSingle()
+        ]);
+
+        const rate = attendanceRes.data?.length > 0 
+          ? Math.round((attendanceRes.data.filter(a => a.present).length / attendanceRes.data.length) * 100) 
+          : 0;
+
+        let formattedDate = 'N/A';
+        if (lastSessionRes.data?.date) {
+          const date = new Date(lastSessionRes.data.date);
+          formattedDate = date.toLocaleDateString('en-US', { month: 'SHORT', day: '2-digit' }).toUpperCase();
+        }
+
+        setStats({
+          totalSessions: sessionsRes.count || 0,
+          activeStudents: studentsRes.count || 0,
+          attendanceRate: rate,
+          lastSessionDate: formattedDate
+        });
+
+        // 2. Fetch Today's Session
+        const todayStr = new Date().toISOString().split('T')[0];
+        const { data: sessionToday } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('date', todayStr)
+          .maybeSingle();
+        
+        setTodaySession(sessionToday);
+
+        if (sessionToday) {
+          const { data: attToday } = await supabase
+            .from('attendance')
+            .select('present')
+            .eq('session_id', sessionToday.id);
+          
+          if (attToday) {
+            setTodayAttendance({
+              present: attToday.filter(a => a.present).length,
+              total: studentsRes.count || 0
+            });
+          }
+        }
+
+        // 3. Fetch User Info
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data: profile } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', authUser.id)
+            .maybeSingle();
+          
+          if (profile) {
+            setUser(profile);
+          } else {
+            setUser({ email: authUser.email, display_name: authUser.email.split('@')[0], role: 'Mentor' });
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchDashboardData();
+  }, []);
+
+  const initials = user.display_name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U';
+
   return (
     <div className="w-full">
       {/* Top Header */}
@@ -21,11 +115,11 @@ export function Dashboard() {
           
           <div className="flex items-center gap-3 pl-6 border-l border-[var(--border-subtle)]">
             <div className="text-right">
-              <div className="text-body font-medium leading-tight">nischay@theboringpeople.in</div>
-              <div className="text-caption text-[var(--text-secondary)]">Mentor</div>
+              <div className="text-body font-medium leading-tight">{user.email}</div>
+              <div className="text-caption text-[var(--text-secondary)] capitalize">{user.role || 'Mentor'}</div>
             </div>
             <div className="w-10 h-10 rounded-full border border-[var(--border-default)] flex items-center justify-center text-body font-semibold bg-[var(--bg-surface-raised)]">
-              N
+              {initials}
             </div>
           </div>
         </div>
@@ -34,10 +128,10 @@ export function Dashboard() {
       {/* Hero Section */}
       <section className="mb-12">
         <h1 className="text-display-hero mb-3 tracking-[-0.03em] font-display font-bold">
-          Welcome Back, Nischay
+          Welcome Back, {user.display_name.split(' ')[0]}
         </h1>
         <p className="text-body text-[var(--text-secondary)]">
-          Last login: Today at 09:41 AM
+          {loading ? "Loading metrics..." : `System status: Operational`}
         </p>
       </section>
 
@@ -45,46 +139,57 @@ export function Dashboard() {
       <section className="flex flex-wrap items-center gap-y-4 gap-x-8 mb-6">
         <div className="flex items-center gap-3">
           <div className="text-label text-[var(--text-tertiary)] tracking-widest uppercase flex items-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            <Calendar className="w-4 h-4" />
             TOTAL SESSIONS
           </div>
-          <div className="text-display-sm font-semibold tabular-nums leading-none">0</div>
+          <div className="text-display-sm font-semibold tabular-nums leading-none">
+            {loading ? "..." : stats.totalSessions}
+          </div>
         </div>
 
         <div className="w-[1px] h-6 bg-[var(--border-subtle)]"></div>
 
         <div className="flex items-center gap-3">
           <div className="text-label text-[var(--text-tertiary)] tracking-widest uppercase flex items-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+            <Activity className="w-4 h-4" />
             OVERALL ATTENDANCE %
           </div>
-          <div className="text-display-sm font-semibold tabular-nums leading-none">82%</div>
+          <div className="text-display-sm font-semibold tabular-nums leading-none">
+            {loading ? "..." : `${stats.attendanceRate}%`}
+          </div>
         </div>
 
         <div className="w-[1px] h-6 bg-[var(--border-subtle)]"></div>
 
         <div className="flex items-center gap-3">
           <div className="text-label text-[var(--text-tertiary)] tracking-widest uppercase flex items-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <Users className="w-4 h-4" />
             ACTIVE STUDENTS
           </div>
-          <div className="text-display-sm font-semibold tabular-nums leading-none">0</div>
+          <div className="text-display-sm font-semibold tabular-nums leading-none">
+            {loading ? "..." : stats.activeStudents}
+          </div>
         </div>
 
         <div className="w-[1px] h-6 bg-[var(--border-subtle)]"></div>
 
         <div className="flex items-center gap-3">
           <div className="text-label text-[var(--text-tertiary)] tracking-widest uppercase flex items-center gap-2">
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <Clock className="w-4 h-4" />
             LAST SESSION DATE
           </div>
-          <div className="text-display-sm font-semibold leading-none">NOV 04</div>
+          <div className="text-display-sm font-semibold leading-none">
+            {loading ? "..." : stats.lastSessionDate}
+          </div>
         </div>
       </section>
 
       {/* Progress Divider */}
       <div className="w-full h-2 bg-[var(--bg-surface-raised)] rounded-full mb-12 overflow-hidden">
-        <div className="h-full bg-[var(--border-strong)] rounded-full w-[25%]"></div>
+        <div 
+          className="h-full bg-[var(--accent-glow)] rounded-full transition-all duration-1000" 
+          style={{ width: loading ? '0%' : `${stats.attendanceRate}%` }}
+        ></div>
       </div>
 
       {/* Main Cards Grid */}
@@ -93,19 +198,18 @@ export function Dashboard() {
         {/* Today's Session Card */}
         <div className="hero-card relative overflow-hidden">
           <div className="text-label text-[var(--text-tertiary)] mb-4">TODAY'S SESSION</div>
-          <h2 className="text-display-md mb-6 max-w-sm font-display font-bold">No Session Scheduled</h2>
+          <h2 className="text-display-md mb-6 max-w-sm font-display font-bold">
+            {todaySession ? todaySession.topic : "No Session Scheduled"}
+          </h2>
           <p className="text-body-lg text-[var(--text-secondary)] max-w-sm mb-12">
-            Take a break, or prepare materials for the next class.
+            {todaySession 
+              ? `Mode: ${todaySession.session_type} • Duration: ${todaySession.duration_hours}h`
+              : "Take a break, or prepare materials for the next class."}
           </p>
           
           {/* Background decoration for empty state */}
           <div className="absolute -bottom-8 -right-8 opacity-[0.03] text-white">
-            <svg width="240" height="240" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
+            <Calendar size={240} />
           </div>
         </div>
 
@@ -114,17 +218,29 @@ export function Dashboard() {
           <div>
             <div className="flex justify-between items-start mb-6">
               <div className="text-label text-[var(--text-tertiary)]">TODAY'S ATTENDANCE</div>
-              <div className="pill pill-neutral text-micro border-[var(--border-subtle)]">+ 0%</div>
+              <div className="pill pill-neutral text-micro border-[var(--border-subtle)]">
+                {todaySession ? "Live" : "+ 0%"}
+              </div>
             </div>
             <div className="flex items-baseline gap-2 font-display">
-              <span className="text-display-hero font-bold">0</span>
-              <span className="text-display-sm text-[var(--text-tertiary)] font-bold">/ 0</span>
+              <span className="text-display-hero font-bold">
+                {todaySession ? todayAttendance.present : 0}
+              </span>
+              <span className="text-display-sm text-[var(--text-tertiary)] font-bold">
+                / {todaySession ? todayAttendance.total : 0}
+              </span>
             </div>
           </div>
           
           <div className="mt-16">
-            <div className="text-label text-[var(--text-tertiary)] mb-4">ABSENT STUDENTS</div>
-            {/* Empty absent list */}
+            <div className="text-label text-[var(--text-tertiary)] mb-4">
+              {todaySession ? "ATTENDANCE STATUS" : "ABSENT STUDENTS"}
+            </div>
+            <div className="text-body text-[var(--text-secondary)]">
+              {todaySession 
+                ? `${Math.round((todayAttendance.present / todayAttendance.total) * 100 || 0)}% Participation rate for today.`
+                : "No attendance data for today."}
+            </div>
           </div>
         </div>
       </div>

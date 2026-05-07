@@ -4,6 +4,7 @@ import { Dashboard } from './pages/Dashboard'
 import { MarkAttendance } from './pages/MarkAttendance'
 import { StudentHistory } from './pages/StudentHistory'
 import { Materials } from './pages/Materials'
+import { BulkImport } from './pages/BulkImport'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
         <Route path="/attendance" element={<MarkAttendance />} />
         <Route path="/history" element={<StudentHistory />} />
         <Route path="/materials" element={<Materials />} />
+        <Route path="/import" element={<BulkImport />} />
       </Routes>
     </AppLayout>
   )

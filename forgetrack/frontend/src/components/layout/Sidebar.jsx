@@ -18,7 +18,7 @@ const navItems = [
     { name: 'Materials', path: '/materials', icon: BookOpen },
   ]},
   { label: 'Data', items: [
-    { name: 'Upload CSV', path: '/upload', icon: Upload },
+    { name: 'Bulk Import', path: '/import', icon: Upload },
   ]},
 ];
 

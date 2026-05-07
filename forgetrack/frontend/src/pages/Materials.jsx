@@ -1,88 +1,74 @@
-import { useState } from 'react';
-import { Search, PlusCircle, FileText, Code, Video, ExternalLink, Calendar as CalendarIcon } from 'lucide-react';
-
-// Mock Data
-const MOCK_MATERIALS = [
-  {
-    id: 1,
-    date: "MAY 06, 2026",
-    topic: "8-Layer AI Application Stack",
-    month: "May 2026",
-    links: [
-      { type: "slide", label: "Lecture Deck", url: "#" },
-      { type: "github", label: "Starter Repo", url: "#" },
-      { type: "video", label: "Session Recording", url: "#" }
-    ]
-  },
-  {
-    id: 2,
-    date: "MAY 04, 2026",
-    topic: "Advanced RAG Pipelines",
-    month: "May 2026",
-    links: [
-      { type: "slide", label: "Pipeline Diagrams", url: "#" },
-      { type: "github", label: "LangChain Examples", url: "#" }
-    ]
-  },
-  {
-    id: 3,
-    date: "MAY 02, 2026",
-    topic: "Vector Databases Deep Dive",
-    month: "May 2026",
-    links: [
-      { type: "slide", label: "Pinecone vs Milvus", url: "#" },
-      { type: "doc", label: "Embedding Best Practices", url: "#" },
-      { type: "video", label: "Session Recording", url: "#" }
-    ]
-  },
-  {
-    id: 4,
-    date: "APR 29, 2026",
-    topic: "Agentic Workflows Overview",
-    month: "April 2026",
-    links: [
-      { type: "slide", label: "What is an Agent?", url: "#" },
-      { type: "github", label: "AutoGPT Clone", url: "#" }
-    ]
-  },
-  {
-    id: 5,
-    date: "APR 26, 2026",
-    topic: "LLM Fine-tuning Basics",
-    month: "April 2026",
-    links: [
-      { type: "slide", label: "PEFT & LoRA", url: "#" },
-      { type: "video", label: "Session Recording", url: "#" }
-    ]
-  },
-  {
-    id: 6,
-    date: "APR 22, 2026",
-    topic: "Prompt Engineering Mastery",
-    month: "April 2026",
-    links: [
-      { type: "slide", label: "Few-Shot & CoT", url: "#" },
-      { type: "doc", label: "Prompt Cheatsheet", url: "#" }
-    ]
-  }
-];
-
-const MONTH_OPTIONS = ["All Time", "May 2026", "April 2026", "March 2026"];
+import { useState, useEffect } from 'react';
+import { Search, PlusCircle, FileText, Code, Video, ExternalLink, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const IconMap = {
-  slide: <FileText className="w-4 h-4 text-[var(--accent-glow)]" />,
+  slides: <FileText className="w-4 h-4 text-[var(--accent-glow)]" />,
   doc: <FileText className="w-4 h-4 text-[var(--info-fg)]" />,
   github: <Code className="w-4 h-4 text-[var(--text-primary)]" />,
-  video: <Video className="w-4 h-4 text-[var(--danger-fg)]" />
+  recording: <Video className="w-4 h-4 text-[var(--danger-fg)]" />,
+  other: <ExternalLink className="w-4 h-4 text-[var(--text-tertiary)]" />
 };
 
 export function Materials() {
   const [search, setSearch] = useState("");
   const [selectedMonth, setSelectedMonth] = useState("All Time");
+  const [materials, setMaterials] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredMaterials = MOCK_MATERIALS.filter(m => {
+  useEffect(() => {
+    async function fetchMaterials() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('materials')
+        .select(`
+          id,
+          title,
+          type,
+          url,
+          sessions (
+            id,
+            date,
+            topic
+          )
+        `)
+        .order('id', { ascending: false });
+
+      if (data) {
+        // Group by session
+        const grouped = data.reduce((acc, item) => {
+          const sessionId = item.sessions.id;
+          if (!acc[sessionId]) {
+            const date = new Date(item.sessions.date);
+            acc[sessionId] = {
+              id: sessionId,
+              date: date.toLocaleDateString('en-US', { month: 'SHORT', day: '2-digit', year: 'numeric' }).toUpperCase(),
+              topic: item.sessions.topic,
+              monthYear: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+              links: []
+            };
+          }
+          acc[sessionId].links.push({
+            type: item.type,
+            label: item.title,
+            url: item.url
+          });
+          return acc;
+        }, {});
+
+        setMaterials(Object.values(grouped));
+      }
+      setLoading(false);
+    }
+
+    fetchMaterials();
+  }, []);
+
+  const monthOptions = ["All Time", ...new Set(materials.map(m => m.monthYear))];
+
+  const filteredMaterials = materials.filter(m => {
     const matchesSearch = m.topic.toLowerCase().includes(search.toLowerCase());
-    const matchesMonth = selectedMonth === "All Time" || m.month === selectedMonth;
+    const matchesMonth = selectedMonth === "All Time" || m.monthYear === selectedMonth;
     return matchesSearch && matchesMonth;
   });
 
@@ -118,7 +104,7 @@ export function Materials() {
               onChange={(e) => setSelectedMonth(e.target.value)}
               className="w-full appearance-none bg-[var(--bg-surface-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] py-2 pl-9 pr-10 text-sm text-[var(--text-primary)] focus:border-[var(--accent-glow)] focus:outline-none transition-colors"
             >
-              {MONTH_OPTIONS.map(month => (
+              {monthOptions.map(month => (
                 <option key={month} value={month}>{month}</option>
               ))}
             </select>
@@ -130,7 +116,12 @@ export function Materials() {
       </header>
 
       {/* Materials Grid */}
-      {filteredMaterials.length > 0 ? (
+      {loading ? (
+        <div className="py-24 flex flex-col items-center justify-center text-center">
+          <Loader2 className="w-8 h-8 text-[var(--accent-glow)] animate-spin mb-4" />
+          <p className="text-body text-[var(--text-secondary)]">Loading materials library...</p>
+        </div>
+      ) : filteredMaterials.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredMaterials.map(material => (
             <div key={material.id} className="card flex flex-col h-full border border-[var(--border-strong)] hover:border-[var(--accent-glow-soft)] transition-colors group">
@@ -152,7 +143,7 @@ export function Materials() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] flex items-center justify-center">
-                        {IconMap[link.type]}
+                        {IconMap[link.type] || IconMap.other}
                       </div>
                       <span className="text-body-sm font-medium text-[var(--text-primary)]">{link.label}</span>
                     </div>

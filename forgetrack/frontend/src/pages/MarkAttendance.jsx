@@ -1,151 +1,163 @@
-import { useState } from 'react';
-import { Calendar, Search, PlusCircle, MonitorPlay, Users as UsersIcon, X, CheckCircle2 } from 'lucide-react';
-
-// Mock Data
-const MOCK_STUDENTS = [
-  { id: 1, name: "Aarav Patel", usn: "4SH24CS001", branch: "AI" },
-  { id: 2, name: "Vihaan Sharma", usn: "4SH24CS002", branch: "EC" },
-  { id: 3, name: "Vivaan Kumar", usn: "4SH24CS003", branch: "IS" },
-  { id: 4, name: "Ananya Singh", usn: "4SH24CS004", branch: "EC" },
-  { id: 5, name: "Diya Gupta", usn: "4SH24CS005", branch: "EC" },
-  { id: 6, name: "Aditya Rao", usn: "4SH24CS006", branch: "CS" },
-  { id: 7, name: "Ishaan Desai", usn: "4SH24CS007", branch: "CS" },
-  { id: 8, name: "Saanvi Reddy", usn: "4SH24CS008", branch: "IS" },
-  { id: 9, name: "Neha Joshi", usn: "4SH24CS009", branch: "EC" },
-  { id: 10, name: "Rohan Mehta", usn: "4SH24CS010", branch: "IS" },
-  { id: 11, name: "Kavya Nair", usn: "4SH24CS011", branch: "IS" },
-  { id: 12, name: "Arjun Verma", usn: "4SH24CS012", branch: "EC" },
-  { id: 13, name: "Aryan Choudhury", usn: "4SH24CS013", branch: "CS" },
-  { id: 14, name: "Meera Iyer", usn: "4SH24CS014", branch: "CS" },
-  { id: 15, name: "Karthik Pillai", usn: "4SH24CS015", branch: "IS" },
-  { id: 16, name: "Rahul Kapoor", usn: "4SH24CS016", branch: "EC" },
-  { id: 17, name: "Shruti Das", usn: "4SH24CS017", branch: "IS" },
-  { id: 18, name: "Nikhil Menon", usn: "4SH24CS018", branch: "AI" },
-  { id: 19, name: "Pooja Bhatt", usn: "4SH24CS019", branch: "IS" },
-  { id: 20, name: "Siddharth Sen", usn: "4SH24CS020", branch: "IS" },
-];
+import { useState, useEffect } from 'react';
+import { Calendar, Search, PlusCircle, MonitorPlay, Users as UsersIcon, X, CheckCircle2, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export function MarkAttendance() {
-  const [selectedDate, setSelectedDate] = useState("2026-05-06");
+  const [students, setStudents] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [currentSessions, setCurrentSessions] = useState([]);
+  const [selectedSessionId, setSelectedSessionId] = useState(null);
+  const [presentStudentIds, setPresentStudentIds] = useState(new Set());
   
-  // Track all sessions for the selected date
-  const [sessionsByDate, setSessionsByDate] = useState({
-    "2026-05-06": [
-      { id: 1, topic: "8-Layer AI Application Stack", mode: "Offline", duration: "2.0" }
-    ]
-  });
-
-  // Track attendance PER SESSION ID to prevent State Bleed
-  const [attendanceBySessionId, setAttendanceBySessionId] = useState({
-    1: new Set() // Default empty set for session 1
-  });
-
-  const currentSessions = sessionsByDate[selectedDate] || [];
-  
-  const [selectedSessionId, setSelectedSessionId] = useState(
-    currentSessions.length > 0 ? currentSessions[0].id : null
-  );
-
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [search, setSearch] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Form states for creating a session
   const [newTopic, setNewTopic] = useState("");
-  const [newMode, setNewMode] = useState("Offline");
+  const [newMode, setNewMode] = useState("offline");
   const [newDuration, setNewDuration] = useState("2.0");
 
   const activeSession = currentSessions.find(s => s.id === selectedSessionId);
-  const currentPresentIds = activeSession ? (attendanceBySessionId[activeSession.id] || new Set()) : new Set();
 
-  const filteredStudents = MOCK_STUDENTS.filter(s => 
+  // 1. Initial Load: Fetch all students
+  useEffect(() => {
+    async function fetchStudents() {
+      const { data } = await supabase
+        .from('students')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      setStudents(data || []);
+    }
+    fetchStudents();
+  }, []);
+
+  // 2. Date/Session Change: Fetch sessions for date
+  useEffect(() => {
+    async function fetchSessions() {
+      setIsLoading(true);
+      const { data } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('date', selectedDate);
+      
+      setCurrentSessions(data || []);
+      
+      if (data && data.length > 0) {
+        setSelectedSessionId(data[0].id);
+      } else {
+        setSelectedSessionId(null);
+      }
+      setIsLoading(false);
+    }
+    fetchSessions();
+  }, [selectedDate]);
+
+  // 3. Session Change: Fetch attendance for session
+  useEffect(() => {
+    async function fetchAttendance() {
+      if (!selectedSessionId) {
+        setPresentStudentIds(new Set());
+        return;
+      }
+      
+      const { data } = await supabase
+        .from('attendance')
+        .select('student_id')
+        .eq('session_id', selectedSessionId)
+        .eq('present', true);
+      
+      setPresentStudentIds(new Set(data?.map(a => a.student_id) || []));
+    }
+    fetchAttendance();
+  }, [selectedSessionId]);
+
+  const filteredStudents = students.filter(s => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
     s.usn.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleDateChange = (e) => {
-    const newDate = e.target.value;
-    setSelectedDate(newDate);
-    
-    const sessions = sessionsByDate[newDate] || [];
-    if (sessions.length > 0) {
-      setSelectedSessionId(sessions[0].id);
-      setIsCreatingSession(false);
-    } else {
-      setSelectedSessionId(null);
-      setIsCreatingSession(false); // Don't force open form, let empty state show
-    }
+    setSelectedDate(e.target.value);
+    setIsCreatingSession(false);
     setSearch("");
   };
 
-  const handleCreateSession = (e) => {
+  const handleCreateSession = async (e) => {
     e.preventDefault();
     if (!newTopic.trim()) return;
     
-    const newSession = {
-      id: Date.now(),
-      topic: newTopic,
-      mode: newMode,
-      duration: newDuration
-    };
+    const { data, error } = await supabase
+      .from('sessions')
+      .insert({
+        date: selectedDate,
+        topic: newTopic,
+        session_type: newMode,
+        duration_hours: parseFloat(newDuration),
+        month_number: new Date(selectedDate).getMonth() + 1
+      })
+      .select()
+      .single();
 
-    setSessionsByDate(prev => ({
-      ...prev,
-      [selectedDate]: [...(prev[selectedDate] || []), newSession]
-    }));
-
-    // Initialize empty attendance for new session
-    setAttendanceBySessionId(prev => ({
-      ...prev,
-      [newSession.id]: new Set()
-    }));
-
-    setSelectedSessionId(newSession.id);
-    setIsCreatingSession(false);
-    setNewTopic(""); // Reset form
+    if (data) {
+      setCurrentSessions(prev => [...prev, data]);
+      setSelectedSessionId(data.id);
+      setIsCreatingSession(false);
+      setNewTopic("");
+    } else {
+      console.error("Error creating session:", error);
+      alert("Failed to create session. Maybe a session already exists for this date?");
+    }
   };
 
   const handleToggle = (id) => {
-    if (!activeSession) return;
-    
-    const newSet = new Set(currentPresentIds);
+    const newSet = new Set(presentStudentIds);
     if (newSet.has(id)) {
       newSet.delete(id);
     } else {
       newSet.add(id);
     }
-    
-    setAttendanceBySessionId(prev => ({
-      ...prev,
-      [activeSession.id]: newSet
-    }));
+    setPresentStudentIds(newSet);
   };
 
   const handleSelectAll = (present) => {
-    if (!activeSession) return;
-
-    const newSet = new Set(currentPresentIds);
-    
-    // Only apply to the students CURRENTLY FILTERED in the view
+    const newSet = new Set(presentStudentIds);
     filteredStudents.forEach(s => {
-      if (present) {
-        newSet.add(s.id);
-      } else {
-        newSet.delete(s.id);
-      }
+      if (present) newSet.add(s.id);
+      else newSet.delete(s.id);
     });
-
-    setAttendanceBySessionId(prev => ({
-      ...prev,
-      [activeSession.id]: newSet
-    }));
+    setPresentStudentIds(newSet);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selectedSessionId) return;
     setIsSaving(true);
-    setTimeout(() => {
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const markedBy = user?.email || 'Mentor';
+
+      const records = students.map(s => ({
+        student_id: s.id,
+        session_id: selectedSessionId,
+        present: presentStudentIds.has(s.id),
+        marked_by: markedBy
+      }));
+
+      const { error } = await supabase
+        .from('attendance')
+        .upsert(records, { onConflict: 'student_id, session_id' });
+
+      if (error) throw error;
+      
+      setTimeout(() => setIsSaving(false), 1500);
+    } catch (error) {
+      console.error("Error saving attendance:", error);
       setIsSaving(false);
-    }, 2000);
+      alert("Error saving attendance. Please try again.");
+    }
   };
 
   return (
@@ -155,7 +167,6 @@ export function MarkAttendance() {
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-h1">Mark Attendance</h1>
           
-          {/* Explicit Create Session Button */}
           {!isCreatingSession && (
             <button 
               onClick={() => setIsCreatingSession(true)}
@@ -167,7 +178,6 @@ export function MarkAttendance() {
           )}
         </div>
         
-        {/* Date & Session Selectors */}
         <div className="flex flex-wrap gap-4 mb-6">
           <div className="relative w-48">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
@@ -198,7 +208,6 @@ export function MarkAttendance() {
           )}
         </div>
 
-        {/* Selected Session Info (Only show if not creating and session exists) */}
         {!isCreatingSession && activeSession && (
           <div className="card max-w-2xl py-6 flex items-center justify-between border border-[var(--border-strong)]">
             <div>
@@ -206,16 +215,15 @@ export function MarkAttendance() {
               <h3 className="text-h3 font-display">{activeSession.topic}</h3>
             </div>
             <div className="flex gap-3">
-              <span className={`pill ${activeSession.mode === 'Online' ? 'pill-success' : 'pill-neutral'}`}>
-                {activeSession.mode}
+              <span className={`pill ${activeSession.session_type === 'online' ? 'pill-success' : 'pill-neutral'} capitalize`}>
+                {activeSession.session_type}
               </span>
-              <span className="pill pill-neutral">{activeSession.duration} hrs</span>
+              <span className="pill pill-neutral">{activeSession.duration_hours} hrs</span>
             </div>
           </div>
         )}
       </header>
 
-      {/* Conditional Rendering: Create Form vs Empty State vs Student List */}
       {isCreatingSession ? (
         <div className="card max-w-2xl relative">
           {currentSessions.length > 0 && (
@@ -238,7 +246,6 @@ export function MarkAttendance() {
           </div>
 
           <form onSubmit={handleCreateSession} className="space-y-6">
-            {/* Topic Input */}
             <div>
               <label className="block text-label text-[var(--text-secondary)] mb-2">SESSION TOPIC</label>
               <input 
@@ -252,28 +259,26 @@ export function MarkAttendance() {
             </div>
 
             <div className="grid grid-cols-2 gap-6">
-              {/* Mode Selector */}
               <div>
                 <label className="block text-label text-[var(--text-secondary)] mb-2">MODE</label>
                 <div className="flex bg-[var(--bg-surface-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-1">
                   <button 
                     type="button"
-                    onClick={() => setNewMode('Offline')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[6px] text-sm font-medium transition-colors ${newMode === 'Offline' ? 'bg-[var(--bg-surface-raised)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                    onClick={() => setNewMode('offline')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[6px] text-sm font-medium transition-colors ${newMode === 'offline' ? 'bg-[var(--bg-surface-raised)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
                   >
                     <UsersIcon className="w-4 h-4" /> Offline
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setNewMode('Online')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[6px] text-sm font-medium transition-colors ${newMode === 'Online' ? 'bg-[var(--bg-surface-raised)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+                    onClick={() => setNewMode('online')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[6px] text-sm font-medium transition-colors ${newMode === 'online' ? 'bg-[var(--bg-surface-raised)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
                   >
                     <MonitorPlay className="w-4 h-4" /> Online
                   </button>
                 </div>
               </div>
 
-              {/* Duration Input */}
               <div>
                 <label className="block text-label text-[var(--text-secondary)] mb-2">DURATION (HOURS)</label>
                 <input 
@@ -307,8 +312,12 @@ export function MarkAttendance() {
             </div>
           </form>
         </div>
+      ) : isLoading ? (
+        <div className="card py-24 flex flex-col items-center justify-center text-center">
+          <Loader2 className="w-8 h-8 text-[var(--accent-glow)] animate-spin mb-4" />
+          <p className="text-body text-[var(--text-secondary)]">Loading students and session data...</p>
+        </div>
       ) : !activeSession ? (
-        /* Empty State */
         <div className="card max-w-2xl py-12 flex flex-col items-center justify-center text-center border-dashed border-[var(--border-strong)] bg-transparent">
           <div className="w-16 h-16 rounded-full bg-[var(--bg-surface-raised)] flex items-center justify-center mb-6">
             <Calendar className="w-8 h-8 text-[var(--text-tertiary)]" />
@@ -326,9 +335,7 @@ export function MarkAttendance() {
           </button>
         </div>
       ) : (
-        /* Student List */
         <div className="card p-0 overflow-hidden flex flex-col h-[600px] border border-[var(--border-strong)]">
-          {/* Card Header & Controls */}
           <div className="flex items-center justify-between p-6 border-b border-[var(--border-subtle)] shrink-0 bg-[var(--bg-surface)]">
             <div className="relative w-72">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
@@ -356,10 +363,9 @@ export function MarkAttendance() {
             </div>
           </div>
 
-          {/* Scrollable List */}
           <div className="overflow-y-auto flex-1 p-2">
             {filteredStudents.map((student) => {
-              const isPresent = currentPresentIds.has(student.id);
+              const isPresent = presentStudentIds.has(student.id);
               return (
                 <div 
                   key={student.id} 
@@ -369,7 +375,6 @@ export function MarkAttendance() {
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    {/* Custom Dark Checkbox */}
                     <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
                       isPresent 
                         ? 'bg-[var(--accent-glow)] border-[var(--accent-glow)]' 
@@ -396,7 +401,7 @@ export function MarkAttendance() {
                     <span className={`pill ${isPresent ? 'pill-success' : 'pill-danger'} min-w-[80px] justify-center`}>
                       {isPresent ? 'Present' : 'Absent'}
                     </span>
-                    <span className="pill pill-neutral w-12 justify-center">{student.branch}</span>
+                    <span className="pill pill-neutral w-12 justify-center">{student.branch_code}</span>
                   </div>
                 </div>
               );
@@ -410,16 +415,15 @@ export function MarkAttendance() {
         </div>
       )}
 
-      {/* Sticky Action Bar - ONLY show when marking attendance (not creating and session exists) */}
       {!isCreatingSession && activeSession && (
         <div className="fixed bottom-0 left-[260px] right-0 p-6 bg-gradient-to-t from-[var(--bg-canvas)] to-transparent pointer-events-none z-20">
           <div className="max-w-[1440px] mx-auto pointer-events-auto">
             <div className="card py-4 px-6 flex items-center justify-between border border-[var(--border-strong)] shadow-2xl">
               <div className="flex items-center gap-4">
                 <div className="text-body-lg font-medium">
-                  <span className="text-[var(--success-fg)]">{currentPresentIds.size} Present</span>
+                  <span className="text-[var(--success-fg)]">{presentStudentIds.size} Present</span>
                   <span className="text-[var(--text-tertiary)] mx-2">•</span>
-                  <span className="text-[var(--danger-fg)]">{MOCK_STUDENTS.length - currentPresentIds.size} Absent</span>
+                  <span className="text-[var(--danger-fg)]">{students.length - presentStudentIds.size} Absent</span>
                 </div>
               </div>
               <button 
