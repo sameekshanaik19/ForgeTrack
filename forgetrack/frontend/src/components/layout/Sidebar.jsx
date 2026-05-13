@@ -22,8 +22,11 @@ const navItems = [
   ]},
 ];
 
+import { useAuth } from '../../context/AuthContext';
+
 export function Sidebar() {
   const location = useLocation();
+  const { profile, signOut } = useAuth();
 
   return (
     <aside className="w-[260px] flex-shrink-0 flex flex-col h-screen border-r border-[var(--border-subtle)] bg-[var(--bg-canvas)]">
@@ -66,8 +69,15 @@ export function Sidebar() {
       </nav>
 
       {/* Footer Navigation */}
-      <div className="p-4 border-t border-[var(--border-subtle)]">
+      <div className="p-4 border-t border-[var(--border-subtle)] space-y-2">
+        {profile && (
+          <div className="px-3 py-2 bg-[var(--bg-surface)] rounded-[var(--radius-lg)] mb-2 border border-[var(--border-subtle)]">
+            <p className="text-sm font-bold text-[var(--text-primary)] truncate">{profile.display_name}</p>
+            <p className="text-micro text-[var(--text-tertiary)] uppercase">{profile.role}</p>
+          </div>
+        )}
         <button
+          onClick={() => signOut()}
           className="w-full flex items-center h-11 px-3 rounded-[var(--radius-lg)] text-[var(--text-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--text-primary)] transition-colors"
         >
           <LogOut className="w-5 h-5 mr-3" strokeWidth={1.75} />

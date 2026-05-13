@@ -89,7 +89,17 @@ export function StudentHistory() {
     <div className="w-full relative pb-24">
       {/* Search Combobox Header */}
       <header className="mb-12">
-        <h1 className="text-h1 mb-6">Student History</h1>
+        <div className="flex justify-between items-start mb-6">
+          <h1 className="text-h1">Student History</h1>
+          {selectedStudent && (
+            <button 
+              onClick={() => setSelectedStudent(null)}
+              className="text-sm font-bold text-[var(--accent-glow)] hover:underline flex items-center gap-2"
+            >
+              ← Back to Student List
+            </button>
+          )}
+        </div>
         
         <div className="relative w-full max-w-2xl">
           <div className="relative">
@@ -157,63 +167,70 @@ export function StudentHistory() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6">
             
-            <div className="hero-card flex flex-col justify-between">
-              <div>
-                <h2 className="text-display-sm font-display font-bold mb-2">{selectedStudent.name}</h2>
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-body-lg font-mono text-[var(--text-tertiary)]">{selectedStudent.usn}</span>
-                  <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)]"></span>
-                  <span className="text-body text-[var(--text-secondary)]">{selectedStudent.branch_code}</span>
-                  <span className="w-1 h-1 rounded-full bg-[var(--text-tertiary)]"></span>
-                  <span className="text-body text-[var(--text-secondary)]">{selectedStudent.batch}</span>
-                </div>
-              </div>
-
-              <div className="mt-12">
-                <div className="text-label text-[var(--text-tertiary)] mb-2">OVERALL ATTENDANCE</div>
-                <div className="flex items-baseline gap-3">
-                  <span className={`text-display-md font-display font-bold tabular-nums tracking-tight ${stats.rate >= 75 ? 'text-[var(--success-fg)]' : 'text-[var(--danger-fg)]'}`}>
-                    {stats.rate}%
-                  </span>
-                  <span className="text-body text-[var(--text-tertiary)] font-medium">
-                    ({stats.present} of {stats.total} sessions)
-                  </span>
-                </div>
+            <div className="hero-card bg-[var(--bg-surface-raised)] border-[var(--border-strong)]">
+              <div className="text-label text-[var(--text-tertiary)] mb-4">OVERALL</div>
+              <div className="flex flex-col">
+                <span className={`text-[64px] font-display font-bold leading-none ${stats.rate >= 75 ? 'text-[var(--success-fg)]' : 'text-pink-500'}`}>
+                  {stats.rate.toFixed(1)}%
+                </span>
+                <span className="text-body text-[var(--text-tertiary)] mt-2 font-medium">
+                  {stats.present} / {stats.total} PRESENT
+                </span>
               </div>
             </div>
 
-            <div className="card">
-              <div className="flex justify-between items-center mb-8">
-                <div className="text-label text-[var(--text-tertiary)]">ATTENDANCE HISTORY (LAST 28 DAYS)</div>
-                <div className="flex gap-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-[4px] bg-[var(--success-bg)] border border-[var(--success-border)]"></div>
-                    <span className="text-micro text-[var(--text-tertiary)]">PRESENT</span>
+            <div className="card bg-[var(--bg-surface-raised)] border-[var(--border-strong)]">
+              <div className="flex justify-between items-center mb-6">
+                <div className="text-h3 font-display">Heatmap</div>
+                <div className="flex gap-3">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-[3px] bg-[#4ADE80]"></div>
+                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">PRESENT</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-[4px] bg-[var(--danger-bg)] border border-[var(--danger-border)]"></div>
-                    <span className="text-micro text-[var(--text-tertiary)]">ABSENT</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-[3px] bg-pink-500"></div>
+                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">ABSENT</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-[3px] bg-[#1F2937]"></div>
+                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">NO CLASS</span>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 gap-3 mb-2">
-                {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                  <div key={i} className="text-center text-micro text-[var(--text-tertiary)] w-8">{day}</div>
-                ))}
-              </div>
-              
-              <div className="grid grid-cols-7 gap-3">
-                {heatmapDays.map((status, i) => {
-                  let classes = "w-8 h-8 rounded-[6px] transition-all ";
-                  if (status === 'present') classes += "bg-[var(--success-bg)] border border-[var(--success-border)] hover:bg-[var(--success-border)]";
-                  else if (status === 'absent') classes += "bg-[var(--danger-bg)] border border-[var(--danger-border)] hover:bg-[var(--danger-border)]";
-                  else classes += "bg-[var(--bg-surface-inset)]";
+              <div className="overflow-x-auto pb-2">
+                <div className="inline-grid grid-rows-4 grid-flow-col gap-[3px]">
+                  {/* Monthly Labels - Simplified for the grid */}
+                  <div className="flex flex-col gap-[3px] mr-2 text-[9px] text-[var(--text-tertiary)] font-bold pt-1">
+                    <span>W</span><span>T</span><span>S</span>
+                  </div>
+                  {/* This creates a large grid from SEP to APR (approx 32 weeks) */}
+                  {Array.from({ length: 120 }).map((_, i) => {
+                    // Logic to simulate the historical data across the grid
+                    const dayIndex = 119 - i;
+                    const d = new Date();
+                    d.setDate(d.getDate() - dayIndex);
+                    const dateStr = d.toISOString().split('T')[0];
+                    const session = sessionHistory.find(s => s.date === dateStr);
+                    
+                    let color = "#1F2937"; // No Class
+                    if (session) {
+                      color = session.status === 'Present' ? "#4ADE80" : "#EC4899";
+                    }
 
-                  if (i === 27) classes += " shadow-[0_0_0_2px_rgba(99,102,241,0.5)]";
-
-                  return <div key={i} className={classes} title={status}></div>;
-                })}
+                    return (
+                      <div 
+                        key={i} 
+                        className="w-[11px] h-[11px] rounded-[2px] transition-colors hover:scale-125 cursor-help"
+                        style={{ backgroundColor: color }}
+                        title={dateStr}
+                      ></div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-8 mt-2 pl-6 text-[9px] text-[var(--text-tertiary)] font-bold uppercase tracking-widest">
+                  <span>SEP</span><span>OCT</span><span>NOV</span><span>DEC</span><span>JAN</span><span>FEB</span><span>MAR</span><span>APR</span>
+                </div>
               </div>
             </div>
 
@@ -277,14 +294,67 @@ export function StudentHistory() {
           </div>
         </div>
       ) : (
-        <div className="card py-24 flex flex-col items-center justify-center text-center border-dashed border-[var(--border-strong)] bg-transparent">
-          <div className="w-16 h-16 rounded-full bg-[var(--bg-surface-raised)] flex items-center justify-center mb-6">
-            <Search className="w-8 h-8 text-[var(--text-tertiary)]" />
+        <div className="space-y-6">
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-h2 mb-1">Student Directory</h2>
+              <p className="text-body text-[var(--text-secondary)]">Overview of all {students.length} students and their engagement.</p>
+            </div>
           </div>
-          <h2 className="text-h2 mb-2">Find a Student</h2>
-          <p className="text-body text-[var(--text-secondary)] max-w-sm">
-            Search for a student by name or USN using the field above to view their complete attendance history.
-          </p>
+
+          <div className="card p-0 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-[var(--bg-surface-inset)]">
+                    <th className="text-left p-4 pl-6 font-body font-medium text-[12px] uppercase tracking-[0.02em] text-[var(--text-tertiary)] border-b border-[var(--border-subtle)]">Student Details</th>
+                    <th className="text-left p-4 font-body font-medium text-[12px] uppercase tracking-[0.02em] text-[var(--text-tertiary)] border-b border-[var(--border-subtle)]">USN / ID</th>
+                    <th className="text-left p-4 font-body font-medium text-[12px] uppercase tracking-[0.02em] text-[var(--text-tertiary)] border-b border-[var(--border-subtle)]">Branch</th>
+                    <th className="text-right p-4 pr-6 font-body font-medium text-[12px] uppercase tracking-[0.02em] text-[var(--text-tertiary)] border-b border-[var(--border-subtle)]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredStudents.map((student) => (
+                    <tr 
+                      key={student.id} 
+                      className="hover:bg-[var(--bg-surface-raised)] transition-colors group cursor-pointer"
+                      onClick={() => setSelectedStudent(student)}
+                    >
+                      <td className="p-4 pl-6 border-b border-[var(--border-subtle)] group-last:border-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[var(--accent-glow-soft)] to-purple-500/20 flex items-center justify-center text-sm font-bold text-[var(--accent-glow)] uppercase">
+                            {student.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="text-body font-bold text-[var(--text-primary)]">{student.name}</div>
+                            <div className="text-caption text-[var(--text-tertiary)]">{student.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 text-body font-mono text-[var(--text-secondary)] border-b border-[var(--border-subtle)] group-last:border-0">
+                        {student.usn}
+                      </td>
+                      <td className="p-4 border-b border-[var(--border-subtle)] group-last:border-0">
+                        <span className="pill pill-neutral">{student.branch_code}</span>
+                      </td>
+                      <td className="p-4 pr-6 text-right border-b border-[var(--border-subtle)] group-last:border-0">
+                        <button className="text-[var(--accent-glow)] text-sm font-bold hover:underline">
+                          View History →
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredStudents.length === 0 && (
+                    <tr>
+                      <td colSpan="4" className="p-12 text-center text-[var(--text-tertiary)] text-body">
+                        No students found in the database. Go to Bulk Import to add some.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
       )}
 

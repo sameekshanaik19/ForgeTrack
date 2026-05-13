@@ -101,16 +101,23 @@ DECLARE
 BEGIN
   new_user_id := gen_random_uuid();
   
-  -- Insert into auth.users (works on standard Supabase setups)
+  -- Insert into auth.users
   INSERT INTO auth.users (
-    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+    instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, recovery_token, email_change_token_new, is_super_admin
   ) VALUES (
-    '00000000-0000-0000-0000-000000000000', new_user_id, 'authenticated', 'authenticated', COALESCE(NEW.email, NEW.usn || '@forge.local'), crypt(NEW.usn, gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW()
+    NULL, new_user_id, 'authenticated', 'authenticated', LOWER(NEW.usn) || '@forge.local', crypt(NEW.usn, gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NOW(), NOW(), '', '', '', false
+  );
+  
+  -- Insert into auth.identities
+  INSERT INTO auth.identities (
+    id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+  ) VALUES (
+    gen_random_uuid(), new_user_id, format('{"sub":"%s","email":"%s"}', new_user_id, LOWER(NEW.usn) || '@forge.local')::jsonb, 'email', new_user_id, NOW(), NOW(), NOW()
   );
   
   -- Insert into public.users
   INSERT INTO public.users (id, email, role, student_id, display_name)
-  VALUES (new_user_id, COALESCE(NEW.email, NEW.usn || '@forge.local'), 'student', NEW.id, NEW.name);
+  VALUES (new_user_id, COALESCE(NEW.email, LOWER(NEW.usn) || '@forge.local'), 'student', NEW.id, NEW.name);
   
   RETURN NEW;
 END;

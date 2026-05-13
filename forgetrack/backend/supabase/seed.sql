@@ -10,16 +10,22 @@ BEGIN
   SELECT id INTO mentor_id FROM auth.users WHERE email = 'nischay@theboringpeople.in';
   IF mentor_id IS NULL THEN
     mentor_id := gen_random_uuid();
-    INSERT INTO auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-    VALUES (mentor_id, 'authenticated', 'authenticated', 'nischay@theboringpeople.in', crypt('password', gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}');
+    INSERT INTO auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, instance_id)
+    VALUES (mentor_id, 'authenticated', 'authenticated', 'nischay@theboringpeople.in', crypt('password', gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NULL);
+    
+    INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+    VALUES (gen_random_uuid(), mentor_id, format('{"sub":"%s","email":"%s"}', mentor_id, 'nischay@theboringpeople.in')::jsonb, 'email', mentor_id, NOW(), NOW(), NOW());
   END IF;
 
   -- Check and insert Mentor 2
   SELECT id INTO co_mentor_id FROM auth.users WHERE email = 'varun@theboringpeople.in';
   IF co_mentor_id IS NULL THEN
     co_mentor_id := gen_random_uuid();
-    INSERT INTO auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-    VALUES (co_mentor_id, 'authenticated', 'authenticated', 'varun@theboringpeople.in', crypt('password', gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}');
+    INSERT INTO auth.users (id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, instance_id)
+    VALUES (co_mentor_id, 'authenticated', 'authenticated', 'varun@theboringpeople.in', crypt('password', gen_salt('bf')), NOW(), '{"provider":"email","providers":["email"]}', '{}', NULL);
+    
+    INSERT INTO auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)
+    VALUES (gen_random_uuid(), co_mentor_id, format('{"sub":"%s","email":"%s"}', co_mentor_id, 'varun@theboringpeople.in')::jsonb, 'email', co_mentor_id, NOW(), NOW(), NOW());
   END IF;
 
   -- Upsert into public.users
