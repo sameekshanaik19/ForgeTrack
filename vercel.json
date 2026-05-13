@@ -3,5 +3,5 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "framework": "vite",
-  "rootDirectory": "forgetrack/frontend"
+  "rootDirectory": "forge/frontend"
 }
