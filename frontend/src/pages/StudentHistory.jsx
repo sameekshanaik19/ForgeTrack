@@ -14,7 +14,15 @@ export function StudentHistory() {
   useEffect(() => {
     async function fetchStudents() {
       const { data } = await supabase.from('students').select('*').order('name');
-      setStudents(data || []);
+      if (data && data.length > 0) {
+        setStudents(data);
+      } else {
+        const localStudents = localStorage.getItem('forge_students');
+        if (localStudents) {
+          setStudents(JSON.parse(localStudents));
+          console.log('Using local students fallback');
+        }
+      }
     }
     fetchStudents();
   }, []);

@@ -31,10 +31,12 @@ function parseIndianDate(str) {
 
 function isDateHeader(header) {
   if (!header) return false;
-  const h = String(header).trim();
+  const h = String(header).trim().toLowerCase();
   if (parseIndianDate(h)) return true;
-  if (/^(session|class|day|date|s\.no|sno|sl)\s*\d*/i.test(h)) return false; // Exclude serial numbers
-  if (/\d{1,2}[\/\-]\d{1,2}/.test(h)) return true; // Contains date pattern
+  // Common session/date patterns
+  if (/\d{1,2}[\/\-]\d{1,2}/.test(h)) return true;
+  // Exclude common non-date headers even if they have numbers
+  if (/^(sl|sno|s\.no|serial|id|usn|roll|index)\b/i.test(h)) return false;
   return false;
 }
 
@@ -79,13 +81,13 @@ export function analyzeSpreadsheetLocally(headers, sampleRows) {
 
   // Detect email column
   let emailIdx = detectColumn(headers, sampleRows,
-    ['email', 'mail', 'e-mail', 'email id'],
+    ['email', 'mail', 'e-mail', 'email id', 'e mail'],
     v => String(v).includes('@')
   );
 
   // Detect branch column
   let branchIdx = detectColumn(headers, sampleRows,
-    ['branch', 'dept', 'department', 'stream', 'course'],
+    ['branch', 'dept', 'department', 'stream', 'course', 'sec', 'section'],
     null
   );
 

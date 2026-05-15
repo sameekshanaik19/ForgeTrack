@@ -2,6 +2,7 @@ import { Search, Calendar, Activity, Users, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { RefreshCw } from 'lucide-react';
 
 // Read from localStorage synchronously — no waiting
 function getLocalStats() {
@@ -32,54 +33,52 @@ export function Dashboard() {
   const [todaySession, setTodaySession] = useState(null);
   const [todayAttendance, setTodayAttendance] = useState({ present: 0, total: 0 });
   const [loading, setLoading] = useState(!localStats); // Only show loading if no local data
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchDashboardData = async (isManual = false) => {
+    try {
+      if (isManual) setRefreshing(true);
+      else setLoading(true);
+
+      const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
+      const { count: sessCount } = await supabase.from('sessions').select('*', { count: 'exact', head: true });
+      const { data: attData } = await supabase.from('attendance').select('present');
+      const { data: lastSess } = await supabase.from('sessions').select('date').order('date', { ascending: false }).limit(1).maybeSingle();
+
+      const rate = attData?.length > 0
+        ? Math.round((attData.filter(a => a.present).length / attData.length) * 100)
+        : 0;
+
+      setStats({
+        totalSessions: sessCount || 0,
+        activeStudents: sCount || 0,
+        attendanceRate: rate,
+        lastSessionDate: formatDate(lastSess?.date)
+      });
+
+      // Today's session
+      const todayStr = new Date().toISOString().split('T')[0];
+      const { data: sessionToday } = await supabase.from('sessions').select('*').eq('date', todayStr).maybeSingle();
+      setTodaySession(sessionToday);
+      if (sessionToday) {
+        const { data: attToday } = await supabase.from('attendance').select('present').eq('session_id', sessionToday.id);
+        if (attToday) setTodayAttendance({ present: attToday.filter(a => a.present).length, total: sCount || 0 });
+      }
+
+      // Clear local completed flag after first successful fetch
+      if (localStorage.getItem('forge_import_completed')) {
+        localStorage.removeItem('forge_import_completed');
+      }
+    } catch (e) {
+      console.error('Dashboard Load Error:', e.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    // Always re-read localStorage on mount (in case import just happened)
-    const cached = getLocalStats();
-    if (cached) {
-      setStats({
-        totalSessions: cached.totalSessions || 0,
-        activeStudents: cached.activeStudents || 0,
-        attendanceRate: cached.attendanceRate || 0,
-        lastSessionDate: formatDate(cached.lastSessionDate)
-      });
-      setLoading(false);
-    }
-
-    // Also try Supabase in background
-    (async () => {
-      try {
-        const { count: sCount } = await supabase.from('students').select('*', { count: 'exact', head: true });
-        const { count: sessCount } = await supabase.from('sessions').select('*', { count: 'exact', head: true });
-        const { data: attData } = await supabase.from('attendance').select('present');
-        const { data: lastSess } = await supabase.from('sessions').select('date').order('date', { ascending: false }).limit(1).maybeSingle();
-
-        if (sCount > 0 || sessCount > 0) {
-          const rate = attData?.length > 0
-            ? Math.round((attData.filter(a => a.present).length / attData.length) * 100)
-            : 0;
-          setStats({
-            totalSessions: sessCount || 0,
-            activeStudents: sCount || 0,
-            attendanceRate: rate,
-            lastSessionDate: formatDate(lastSess?.date)
-          });
-        }
-
-        // Today's session
-        const todayStr = new Date().toISOString().split('T')[0];
-        const { data: sessionToday } = await supabase.from('sessions').select('*').eq('date', todayStr).maybeSingle();
-        setTodaySession(sessionToday);
-        if (sessionToday) {
-          const { data: attToday } = await supabase.from('attendance').select('present').eq('session_id', sessionToday.id);
-          if (attToday) setTodayAttendance({ present: attToday.filter(a => a.present).length, total: sCount || 0 });
-        }
-      } catch (e) {
-        console.warn('DB fetch failed, using localStorage data:', e.message);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    fetchDashboardData();
   }, []);
 
   return (
@@ -98,6 +97,14 @@ export function Dashboard() {
               className="w-full bg-[var(--bg-surface-inset)] border border-[var(--border-default)] rounded-[var(--radius-md)] py-2 pl-9 pr-4 text-sm text-[var(--text-primary)] focus:border-[var(--accent-glow)] focus:outline-none transition-colors placeholder:text-[var(--text-tertiary)]"
             />
           </div>
+          
+          <button 
+            onClick={() => fetchDashboardData(true)}
+            className={`p-2 rounded-lg border border-[var(--border-default)] hover:bg-[var(--bg-surface-raised)] transition-all ${refreshing ? 'text-[var(--accent-glow)]' : 'text-[var(--text-secondary)]'}`}
+            title="Refresh Data"
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           
           <div className="flex items-center gap-3 pl-6 border-l border-[var(--border-subtle)]">
             <div className="text-right">
@@ -220,7 +227,7 @@ export function Dashboard() {
               OVERALL ATTENDANCE RATE
             </div>
             <div className="text-body text-[var(--text-secondary)]">
-              {stats.activeStudents > 0 
+              {stats.activeStudents > 0 || localStorage.getItem('forge_import_completed') === 'true'
                 ? `${stats.attendanceRate}% average across ${stats.activeStudents} students and ${stats.totalSessions} sessions.`
                 : 'Import a spreadsheet to see attendance data.'}
             </div>

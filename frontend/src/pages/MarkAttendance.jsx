@@ -24,12 +24,22 @@ export function MarkAttendance() {
   // 1. Initial Load: Fetch all students
   useEffect(() => {
     async function fetchStudents() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('students')
         .select('*')
         .eq('is_active', true)
         .order('name');
-      setStudents(data || []);
+      
+      if (data && data.length > 0) {
+        setStudents(data);
+      } else {
+        // Fallback to localStorage
+        const localStudents = localStorage.getItem('forge_students');
+        if (localStudents) {
+          setStudents(JSON.parse(localStudents));
+          console.log('Using local students fallback');
+        }
+      }
     }
     fetchStudents();
   }, []);
@@ -148,7 +158,7 @@ export function MarkAttendance() {
 
       const { error } = await supabase
         .from('attendance')
-        .upsert(records, { onConflict: 'student_id, session_id' });
+        .insert(records);
 
       if (error) throw error;
       
