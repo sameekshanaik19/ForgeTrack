@@ -63,11 +63,49 @@ Ensure your Supabase database has the correct schema. You can run the `backend/s
 
 ---
 
+## ⚙️ Backend Logic (Supabase Functions)
+
+ForgeTrack utilizes **Supabase Edge Functions** for robust, server-side processing that ensures data integrity and high performance. This architecture allows us to move complex logic away from the client and into a scalable serverless environment.
+
+### Available Functions:
+- **`process-attendance`**: 
+  - **Purpose**: Handles high-volume attendance data synchronization.
+  - **Trigger**: Called after bulk CSV/Excel imports to process records and calculate program health metrics.
+  - **Location**: `backend/supabase/functions/process-attendance/`
+  - **Tech**: Deno / TypeScript
+
+---
+
 ## 🔒 Security & Roles
-- **Mentors**: Full CRUD access to students, sessions, materials, and imports.
-- **Students**: Read-only access to their own data via Row Level Security (RLS).
+- **Mentors**: Full CRUD access to students, sessions, materials, and imports. Protected by Row Level Security (RLS) on all tables.
+- **Students**: Read-only access to their own data via strictly enforced RLS policies based on `auth.uid()`.
+- **Database Schema**: The full schema, including RLS policies, triggers, and constraints, is available in `backend/supabase/schema.sql`.
+
+---
+
+## 🌐 Deployment
+
+The application is deployed on Vercel. 
+
+**Vercel Project Dashboard**: [https://vercel.com/sameekshanaik19s-projects/forge-track/](https://vercel.com/sameekshanaik19s-projects/forge-track/)
+
+**Public Live Demo**: `https://forge-track-sameekshanaik19s-projects.vercel.app`
+*(Note: You MUST go to your Vercel Settings > Deployment Protection and turn **OFF** "Vercel Authentication" to allow the reviewer to see the app. Currently, it returns a 401 error.)*
+
+---
+
+## 🔑 Environment Variables
+
+To run this project locally or deploy it, you need to set up the following environment variables in a `.env` or `.env.local` file:
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
 ---
 
 ## 📄 License
 Internal Tool for BOPPL Pvt. Ltd. / The Forge Bootcamp.
+
+

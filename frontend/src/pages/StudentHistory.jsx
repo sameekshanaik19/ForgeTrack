@@ -188,56 +188,57 @@ export function StudentHistory() {
             </div>
 
             <div className="card bg-[var(--bg-surface-raised)] border-[var(--border-strong)]">
-              <div className="flex justify-between items-center mb-6">
-                <div className="text-h3 font-display">Heatmap</div>
-                <div className="flex gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-[3px] bg-[#4ADE80]"></div>
-                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">PRESENT</span>
+              <div className="flex justify-between items-center mb-8">
+                <h3 className="text-h3 font-display">Heatmap</h3>
+                <div className="flex gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-[3px] bg-[#4ade80]"></div>
+                    <span className="text-micro text-[var(--text-tertiary)]">PRESENT</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-[3px] bg-pink-500"></div>
-                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">ABSENT</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-[3px] bg-[#f43f5e]"></div>
+                    <span className="text-micro text-[var(--text-tertiary)]">ABSENT</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-3 rounded-[3px] bg-[#1F2937]"></div>
-                    <span className="text-[10px] text-[var(--text-tertiary)] uppercase font-bold">NO CLASS</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-[3px] bg-[#111827]"></div>
+                    <span className="text-micro text-[var(--text-tertiary)]">NO CLASS</span>
                   </div>
                 </div>
               </div>
 
-              <div className="overflow-x-auto pb-2">
-                <div className="inline-grid grid-rows-4 grid-flow-col gap-[3px]">
-                  {/* Monthly Labels - Simplified for the grid */}
-                  <div className="flex flex-col gap-[3px] mr-2 text-[9px] text-[var(--text-tertiary)] font-bold pt-1">
+              <div className="overflow-x-auto pb-4 custom-scrollbar">
+                <div className="inline-grid grid-rows-3 grid-flow-col gap-1.5 min-w-max px-1">
+                  {/* Day Labels */}
+                  <div className="flex flex-col justify-between py-0.5 mr-3 text-[10px] text-[var(--text-tertiary)] font-bold">
                     <span>W</span><span>T</span><span>S</span>
                   </div>
-                  {/* This creates a large grid from SEP to APR (approx 32 weeks) */}
-                  {Array.from({ length: 120 }).map((_, i) => {
-                    // Logic to simulate the historical data across the grid
-                    const dayIndex = 119 - i;
+                  
+                  {/* Heatmap Grid (Approx 52 weeks) */}
+                  {Array.from({ length: 156 }).map((_, i) => {
+                    const dayIndex = 155 - i;
                     const d = new Date();
+                    // We simulate history over the last ~5 months to match the visual
                     d.setDate(d.getDate() - dayIndex);
                     const dateStr = d.toISOString().split('T')[0];
                     const session = sessionHistory.find(s => s.date === dateStr);
                     
-                    let color = "#1F2937"; // No Class
+                    let color = "#111827"; // No Class
                     if (session) {
-                      color = session.status === 'Present' ? "#4ADE80" : "#EC4899";
+                      color = session.status === 'Present' ? "#4ade80" : "#f43f5e";
                     }
 
                     return (
                       <div 
                         key={i} 
-                        className="w-[11px] h-[11px] rounded-[2px] transition-colors hover:scale-125 cursor-help"
+                        className="w-[18px] h-[18px] rounded-[4px] transition-all hover:scale-110 cursor-help shadow-inner border border-white/5"
                         style={{ backgroundColor: color }}
                         title={dateStr}
                       ></div>
                     );
                   })}
                 </div>
-                <div className="flex gap-8 mt-2 pl-6 text-[9px] text-[var(--text-tertiary)] font-bold uppercase tracking-widest">
-                  <span>SEP</span><span>OCT</span><span>NOV</span><span>DEC</span><span>JAN</span><span>FEB</span><span>MAR</span><span>APR</span>
+                <div className="flex justify-between mt-4 pl-10 pr-4 text-[10px] text-[var(--text-tertiary)] font-bold uppercase tracking-widest">
+                  <span>SEP</span><span>OCT</span><span>NOV</span><span>DEC</span><span>JAN</span><span>FEB</span><span>MAR</span><span>APR</span><span>MAY</span>
                 </div>
               </div>
             </div>
